@@ -23,14 +23,38 @@ const QueryInterface = () => {
 
   const handleSubmit = async () => {
     if (!query.trim()) return;
-
+  
     setIsLoading(true);
     setError(null);
-
+  
     try {
-      const result = await sendQuery(query);
-      setResponse(result);
-      setAgentUsed(result.agent_used);
+      const apiUrl = 'http://localhost:8000/query';
+      
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query: query,
+          context: {},
+          conversation_id: conversationId
+        }),
+      });
+  
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+  
+      const result = await response.json();
+      
+      setResponse({
+        response: result.response,
+        sources: result.sources,
+        agent_used: result.domain // Map domain to agent_used
+      });
+      setAgentUsed(result.domain);
+      
     } catch (err) {
       setError('Failed to get response from the agent. Please try again.');
       console.error(err);

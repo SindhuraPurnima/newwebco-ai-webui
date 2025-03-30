@@ -1,0 +1,162 @@
+/* Create this file at: frontend/src/App.css */
+
+.app {
+    font-family: 'Segoe UI', 'Roboto', sans-serif;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+  }
+  
+  .app-header {
+    background-color: #2c3e50;
+    color: white;
+    padding: 15px 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+  }
+  
+  .app-header h1 {
+    margin: 0;
+    font-size: 1.8rem;
+  }
+  
+  .main-container {
+    display: flex;
+  }
+  
+  .content {
+    flex: 1;
+    min-height: 600px;
+  }
+  
+  .query-interface {
+    background-color: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  }
+  
+  .query-container {
+    margin-bottom: 20px;
+  }
+  
+  .query-input {
+    width: 100%;
+    min-height: 100px;
+    padding: 12px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    font-size: 1rem;
+    margin-bottom: 10px;
+    resize: vertical;
+  }
+  
+  .submit-button {
+    background-color: #3498db;
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: 500;
+  }
+  
+  .submit-button:hover {
+    background-color: #2980b9;
+  }
+  
+  .submit-button:disabled {
+    background-color: #95a5a6;
+    cursor: not-allowed;
+  }
+  
+  .error-message {
+    color: #e74c3c;
+    padding: 10px;
+    background-color: #fadbd8;
+    border-radius: 4px;
+    margin-bottom: 20px;
+  }
+  
+  .response-container {
+    padding: 15px;
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0 1px 5px rgba(0, 0, 0, 0.1);
+  }
+  
+  .agent-indicator {
+    display: inline-block;
+    padding: 6px 10px;
+    background-color: #ecf0f1;
+    border-radius: 20px;
+    margin-bottom: 15px;
+    font-size: 0.9rem;
+  }
+  
+  .agent-label {
+    font-weight: 500;
+    margin-right: 5px;
+  }
+  
+  .agent-name {
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 10px;
+  }
+  
+  .agent-name.web {
+    background-color: #3498db;
+    color: white;
+  }
+  
+  .agent-name.clinical {
+    background-color: #2ecc71;
+    color: white;
+  }
+  
+  .agent-name.food_security {
+    background-color: #f39c12;
+    color: white;
+  }
+  
+  .response-display, .sources-display {
+    margin-bottom: 20px;
+  }
+  
+  .response-display h3, .sources-display h3 {
+    font-size: 1.2rem;
+    margin-bottom: 10px;
+    color: #2c3e50;
+  }
+  
+  .response-content {
+    line-height: 1.6;
+    white-space: pre-wrap;
+  }
+  
+  .sources-list {
+    list-style: none;
+    padding: 0;
+  }
+  
+  .source-item {
+    background-color: #f8f9fa;
+    padding: 10px;
+    margin-bottom: 8px;
+    border-radius: 4px;
+    border-left: 3px solid #3498db;
+  }
+  
+  .source-title {
+    font-weight: 600;
+    margin-bottom: 5px;
+  }
+  
+  .source-page, .source-relevance {
+    font-size: 0.9rem;
+    color: #7f8c8d;
+    display: inline-block;
+    margin-right: 15px;
+  }

@@ -1,25 +1,23 @@
+# app/main.py
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Dict, List, Any, Optional
-import uvicorn
+import os
 
-# Import agent modules
-from agents.chat_agent import ChatAgent
-from agents.classification_agent import ClassificationAgent
-from agents.orchestrator_agent import OrchestratorAgent
-from agents.web_agent import WebAgent
-from agents.clinical_agent import ClinicalAgent
-from agents.food_security_agent import FoodSecurityAgent
+from utils.document_processor import DocumentProcessor
+from utils.search_engine import SearchEngine
+from utils.text_generation import TextGenerator
+from utils.domain_classifier import DomainClassifier
+from utils.custom_embeddings import E5EmbeddingModel
 
-# Initialize the FastAPI app
 app = FastAPI(
     title="NewWebCo AI Agents API",
     description="API for orchestrating AI agents for productivity enhancement",
     version="1.0.0"
 )
 
-# Configure CORS for frontend communication
+# Configure CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # In production, replace with specific origins
@@ -28,21 +26,65 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize specialized agents
-web_agent = WebAgent()
-clinical_agent = ClinicalAgent(data_path="data/ctg-studies.pdf")
-food_security_agent = FoodSecurityAgent(data_path="data/cd1254en.pdf")
+# Initialize components
+document_processor = DocumentProcessor()
+classifier = DomainClassifier()
 
-# Initialize orchestration agents
-orchestrator = OrchestratorAgent(
-    web_agent=web_agent,
-    clinical_agent=clinical_agent,
-    food_security_agent=food_security_agent
-)
-classification_agent = ClassificationAgent()
-chat_agent = ChatAgent(classification_agent=classification_agent, orchestrator=orchestrator)
+# Setup paths
+data_dir = os.path.join(os.path.dirname(__file__), "data")
+vector_db_dir = os.path.join(os.path.dirname(__file__), "vector_db")
+os.makedirs(vector_db_dir, exist_ok=True)
 
-# Define request models
+# Define domains and their document sources
+DOMAINS = {
+    "clinical": {
+        "description": "Medical topics, healthcare, diseases, symptoms, treatment, diagnosis",
+        "pdf_files": ["ctg-studies.pdf"]
+    },
+    "food_security": {
+        "description": "Agriculture, farming, crops, food production, nutrition, policy",
+        "pdf_files": ["cd1254en.pdf"]
+    },
+    "general": {
+        "description": "General knowledge, technology, science, history, AI, computers",
+        "pdf_files": []  # No PDFs for general knowledge as we'll use the model
+    }
+}
+
+# Initialize with domain awareness
+document_collections = {}
+
+# Process each domain's documents
+for domain_name, domain_info in DOMAINS.items():
+    domain_pdfs = domain_info["pdf_files"]
+    domain_docs = []
+    
+    for pdf_file in domain_pdfs:
+        pdf_path = os.path.join(data_dir, pdf_file)
+        vector_db_path = os.path.join(vector_db_dir, f"{domain_name}_{pdf_file}.pkl")
+        
+        if os.path.exists(pdf_path):
+            if os.path.exists(vector_db_path):
+                # Load existing embeddings
+                domain_docs.extend(document_processor.load_vector_store(vector_db_path))
+                print(f"Loaded {pdf_file} embeddings for {domain_name}")
+            else:
+                # Process new PDF with domain awareness
+                new_docs = document_processor.process_pdf(pdf_path, vector_db_path, domain_name)
+                domain_docs.extend(new_docs)
+                print(f"Created embeddings for {pdf_file} in {domain_name} domain")
+    
+    document_collections[domain_name] = domain_docs
+
+# Initialize search engine with document collections
+search_engine = SearchEngine(document_collections)
+embedding_model = E5EmbeddingModel()
+search_engine.set_embedding_model(embedding_model)
+
+# Initialize text generator (LLM)
+text_generator = TextGenerator()
+
+# Define request/response models
 class QueryRequest(BaseModel):
     query: str
     context: Optional[Dict[str, Any]] = None
@@ -50,32 +92,76 @@ class QueryRequest(BaseModel):
 
 class QueryResponse(BaseModel):
     response: str
-    sources: Optional[List[Dict[str, Any]]] = None
-    additional_info: Optional[Dict[str, Any]] = None
-    agent_used: str
+    sources: List[Dict[str, Any]]
+    domain: str
+    confidence: float
 
-# Define API routes
 @app.get("/")
 async def root():
     return {"message": "Welcome to NewWebCo AI Agents API"}
 
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy"}
+    return {
+        "status": "healthy",
+        "document_collections": list(document_collections.keys())
+    }
 
 @app.post("/query", response_model=QueryResponse)
 async def process_query(request: QueryRequest):
     try:
-        # The chat agent handles all initial queries
-        response = chat_agent.process_query(
+        # 1. Log the incoming query for debugging
+        print(f"Processing query: {request.query}")
+        
+        # 2. Classify the query
+        classification = classifier.classify_query(request.query)
+        domain = classification["domain"]
+        confidence = classification["confidence"]
+        print(f"Query classified as '{domain}' with confidence {confidence}")
+        
+        # 3. Verify query classification makes sense
+        if "artificial intelligence" in request.query.lower() or "ai" in request.query.lower().split():
+            print("Query contains AI terminology, forcing general domain")
+            domain = "general"
+            
+        # 4. Retrieve relevant documents
+        relevant_docs = search_engine.search(
             request.query, 
-            context=request.context,
-            conversation_id=request.conversation_id
+            domain=domain,
+            top_k=5
         )
-        return response
+        
+        # 5. Check if we have meaningful results
+        has_relevant_docs = any(doc.get("score", 0) > 0.4 for doc in relevant_docs)
+        
+        # 6. Generate appropriate response
+        if domain != "general" and not has_relevant_docs:
+            # For specialized domains with no good matches, try general domain
+            print(f"No good matches in {domain}, trying general domain")
+            general_docs = search_engine.search(request.query, domain="general", top_k=3)
+            
+            # Combine results
+            relevant_docs = general_docs + relevant_docs
+        
+        # 7. Generate response with domain context
+        text_response = text_generator.generate_response(
+            request.query,
+            relevant_docs,
+            domain=domain
+        )
+        
+        # 8. Return results
+        return {
+            "response": text_response["response"],
+            "sources": relevant_docs,
+            "domain": domain,
+            "confidence": float(confidence)
+        }
+        
     except Exception as e:
+        print(f"Error processing query: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-# Run the application when executed directly
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True) 
+    import uvicorn
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

@@ -23,35 +23,78 @@ const QueryInterface = () => {
 
   const handleSubmit = async () => {
     if (!query.trim()) return;
-
+  
     setIsLoading(true);
     setError(null);
-
+  
     try {
-      // In a real implementation, this would call your API
-      // Simulating API response for now
-      setTimeout(() => {
-        const agentTypes = ['web', 'clinical', 'food_security'];
-        const selectedAgent = agentTypes[Math.floor(Math.random() * agentTypes.length)];
-        
-        const result = {
-          response: `This is a simulated response to: "${query}"`,
-          sources: [
-            { title: "Sample Source", page: 42, relevance: 0.89 }
-          ],
-          agent_used: selectedAgent
-        };
-        
-        setResponse(result);
-        setAgentUsed(result.agent_used);
-        setIsLoading(false);
-      }, 1000);
+      const apiUrl = 'http://localhost:8000/query';
+      
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query: query,
+          context: {},
+          conversation_id: conversationId
+        }),
+      });
+  
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+  
+      const result = await response.json();
+      
+      setResponse({
+        response: result.response,
+        sources: result.sources,
+        agent_used: result.domain // Map domain to agent_used
+      });
+      setAgentUsed(result.domain);
+      
     } catch (err) {
       setError('Failed to get response from the agent. Please try again.');
       console.error(err);
+    } finally {
       setIsLoading(false);
     }
   };
+
+//   const handleSubmit = async () => {
+//     if (!query.trim()) return;
+
+//     setIsLoading(true);
+//     setError(null);
+
+//     try {
+//       // In a real implementation, this would call your API
+//       // Simulating API response for now
+//       setTimeout(() => {
+//         const agentTypes = ['web', 'clinical', 'food_security'];
+//         const selectedAgent = agentTypes[Math.floor(Math.random() * agentTypes.length)];
+        
+//         const result = {
+//           response: `This is a simulated response to: "${query}"`,
+//           sources: [
+//             { title: "Sample Source", page: 42, relevance: 0.89 }
+//           ],
+//           agent_used: selectedAgent
+//         };
+        
+//         setResponse(result);
+//         setAgentUsed(result.agent_used);
+//         setIsLoading(false);
+//       }, 1000);
+//     } catch (err) {
+//       setError('Failed to get response from the agent. Please try again.');
+//       console.error(err);
+//       setIsLoading(false);
+//     }
+//   };
+
 
   return (
     <div className="query-interface">
